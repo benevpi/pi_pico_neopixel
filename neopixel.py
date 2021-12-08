@@ -47,8 +47,8 @@ def sk6812():
 # Same hold for every other index (and - 1 at the end for 3 letter strings).
 
 class Neopixel:
-    def __init__(self, num_leds, state_machine, pin, mode="RGB", delay=0.0001):
-        self.pixels = array.array("I", [0 for _ in range(num_leds)])
+    def __init__(self, num_leds, state_machine, pin, mode="RGB", delay=0.0001, dma=False, dma_chan=0):
+        self.pixels = array.array("L", [0 for _ in range(num_leds)])
         self.mode = set(mode)   # set for better performance
         if 'W' in self.mode:
             # RGBW uses different PIO state machine configuration
@@ -60,10 +60,22 @@ class Neopixel:
             self.sm = rp2.StateMachine(state_machine, ws2812, freq=8000000, sideset_base=Pin(pin))
             self.shift = {'R': ((mode.index('R') ^ 3) - 1) * 8, 'G': ((mode.index('G') ^ 3) - 1) * 8,
                           'B': ((mode.index('B') ^ 3) - 1) * 8, 'W': 0}
+            
         self.sm.active(1)
         self.num_leds = num_leds
         self.delay = delay
         self.brightnessvalue = 255
+        
+        self.dma = dma
+        
+        if dma:
+            import rp2040_pio_dma
+            self.dma_class = rp2040_pio_dma.PIO_DMA_Transfer(dma_chan, state_machine, 32, num_leds)
+            #some jiggery pokery because the sm.put has an auto-shift bit that we can't use in DMA
+            if "W" not in self.mode:
+                self.shift["R"] = self.shift["R"] + 8
+                self.shift["G"] = self.shift["G"] + 8
+                self.shift["B"] = self.shift["B"] + 8
 
     # Set the overal value to adjust brightness when updating leds
     def brightness(self, brightness=None):
@@ -111,6 +123,7 @@ class Neopixel:
         green = round(rgb_w[1] * (self.brightness() / 255))
         blue = round(rgb_w[2] * (self.brightness() / 255))
         white = 0
+        
         # if it's (r, g, b, w)
         if len(rgb_w) == 4 and 'W' in self.mode:
             white = round(rgb_w[3] * (self.brightness() / 255))
@@ -183,12 +196,16 @@ class Neopixel:
     # Update pixels
     def show(self):
         # If mode is RGB, we cut 8 bits of, otherwise we keep all 32
-        cut = 8
-        if 'W' in self.mode:
-            cut = 0
-        for i in range(self.num_leds):
-            self.sm.put(self.pixels[i], cut)
-        time.sleep(self.delay)
+        if self.dma:
+            print("dma show")
+            self.dma_class.start_transfer(self.pixels)
+        else:
+            cut = 8
+            if 'W' in self.mode:
+                cut = 0
+            for i in range(self.num_leds):
+                self.sm.put(self.pixels[i], cut)
+            time.sleep(self.delay)
 
     # Set all pixels to given rgb values
     # Function accepts (r, g, b) / (r, g, b, w)
@@ -196,5 +213,3 @@ class Neopixel:
         for i in range(self.num_leds):
             self.set_pixel(i, rgb_w)
         time.sleep(self.delay)
-
-
