@@ -1,3 +1,17 @@
+# DMA Test Fork
+This is a fork to test out adding DMA code to this. In principle, this should be significantly faster for larger chains as it returns control to the MicroPython program immediatly after calling show() rather than after the complete transfer has taken place. Currently, there is a potential for a slight problem if you call show() really rapidly, but that's fixable.
+
+It should work as normal unless you specify DMA when creating the NeoPixel object. E.g.:
+
+```
+from neopixel import Neopixel
+pixels = Neopixel(10, 0, 0, "RGB", dma=True, dma_chan=0)
+pixels.fill((5, 5, 5))
+pixels.show()
+```
+
+NOTE: You will need both This version of the NeoPixel library AND the rp2040_pio_dma.py file (in this repo) copied to your device.
+
 # pi_pico_neopixel
 a library for using ws2812b and sk6812 leds (aka neopixels) with Raspberry Pi Pico
 
