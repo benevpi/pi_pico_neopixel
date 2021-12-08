@@ -198,6 +198,8 @@ class Neopixel:
         # If mode is RGB, we cut 8 bits of, otherwise we keep all 32
         if self.dma:
             print("dma show")
+            while(self.dma_class.busy()):
+                time.sleep(self.delay)
             self.dma_class.start_transfer(self.pixels)
         else:
             cut = 8
@@ -213,3 +215,5 @@ class Neopixel:
         for i in range(self.num_leds):
             self.set_pixel(i, rgb_w)
         time.sleep(self.delay)
+
+
